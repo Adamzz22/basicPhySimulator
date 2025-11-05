@@ -83,9 +83,19 @@ struct Wall {
     end: Vec2,
 }
 
+struct Spring {
+    object_index: usize,
+    anchor: Option<usize>, // None for fixed point, Some(index) for connection to another object
+    anchor_pos: Vec2,      // Used when anchor is None (fixed point)
+    rest_length: f32,
+    stiffness: f32,
+    damping: f32,
+}
+
 struct PhysicsApp {
     objects: Vec<PhysicsObject>,
     walls: Vec<Wall>,
+    springs: Vec<Spring>,
     gravity: Vec2,
     last_time: Instant,
     bounds: (f32, f32),
@@ -98,42 +108,21 @@ struct PhysicsApp {
 
 impl Default for PhysicsApp {
     fn default() -> Self {
-        let mut objects = Vec::new();
-        
-        // Add some initial objects
-        objects.push(PhysicsObject {
-            pos: Vec2::new(200.0, 100.0),
-            vel: Vec2::new(150.0, 0.0),
-            acc: Vec2 { x: 0.0, y: (0.0) },
-            radius: 30.0,
-            mass: 1.0,
-            color: egui::Color32::from_rgb(255, 100, 100),
-            bounciness: 0.6,
-        });
-        
-        objects.push(PhysicsObject {
-            pos: Vec2::new(400.0, 200.0),
-            vel: Vec2::new(-100.0, 50.0),
-            acc: Vec2 { x: 0.0, y: (0.0) },
-            radius: 25.0,
-            mass: 0.8,
-            color: egui::Color32::from_rgb(100, 255, 100),
-            bounciness: 0.9,
-        });
-        
-        objects.push(PhysicsObject {
-            pos: Vec2::new(600.0, 150.0),
-            vel: Vec2::new(-80.0, -30.0),
-            acc: Vec2 { x: 0.0, y: (0.0) },
-            radius: 35.0,
-            mass: 1.2,
-            color: egui::Color32::from_rgb(100, 100, 255),
-            bounciness: 0.7,
-        });
 
+        let mut springs= Vec::new();
+        springs.push(Spring {
+            object_index: 0,
+            anchor: None,
+            anchor_pos: Vec2::new(400.0, 50.0),
+            rest_length: 100.0,
+            stiffness: 50.0,
+            damping: 5.0,
+        });
+        
         Self {
-            objects,
+            objects: Vec::new(),
             walls: Vec::new(),
+            springs: springs,
             gravity: Vec2::new(0.0, 550.0),
             last_time: Instant::now(),
             bounds: (800.0, 600.0),
@@ -160,18 +149,55 @@ impl PhysicsApp {
             return;
         }
 
-        // Handle dragging with physics
+        let spring_forces: Vec<(usize, Vec2)> = self.springs.iter().filter_map(|spring| {
+            let obj = self.objects.get(spring.object_index)?;
+            
+            // Get anchor position (either from fixed point or another object)
+            let anchor_pos = if let Some(anchor_idx) = spring.anchor {
+                self.objects.get(anchor_idx)?.pos
+            } else {
+                spring.anchor_pos
+            };
+
+            // Calculate spring force
+            let to_anchor = anchor_pos - obj.pos;
+            let distance = to_anchor.length();
+            if distance == 0.0 { return None; }
+
+            let direction = to_anchor * (1.0 / distance);
+            
+            // Spring force (F = -kx)
+            let stretch = distance - spring.rest_length;
+            let spring_force = direction * (stretch * spring.stiffness);
+
+            // Damping force (F = -bv)
+            let relative_vel = if let Some(anchor_idx) = spring.anchor {
+                obj.vel - self.objects.get(anchor_idx)?.vel
+            } else {
+                obj.vel
+            };
+            let damping_force = relative_vel * -spring.damping;
+
+            Some((spring.object_index, spring_force + damping_force))
+        }).collect();
+
+        // Apply spring forces
+        for (idx, force) in spring_forces {
+            if let Some(obj) = self.objects.get_mut(idx) {
+                obj.acc = obj.acc + force * (1.0 / obj.mass);
+            }
+        }
+
+        // object dragging 
         if let Some(idx) = self.dragged_object {
             if let Some(mouse_pos) = mouse_pos {
                 if let Some(obj) = self.objects.get_mut(idx) {
-                    let spring_strength = 15.0; // Adjust this to change how strongly the object follows the mouse
-                    let damping = 0.8; // Adjust this to change how quickly the object slows down
+                    let spring_strength = 15.0; 
+                    let damping = 0.89;
                     
-                    // Apply spring force towards mouse
-                    let to_mouse = mouse_pos - obj.pos;
-                    obj.acc = obj.acc + to_mouse * spring_strength;
+                    let vec_to_mouse = mouse_pos - obj.pos;
+                    obj.acc = obj.acc + vec_to_mouse * spring_strength;
                     
-                    // Apply damping to prevent excessive oscillation
                     obj.vel = obj.vel * damping;
                 }
             }
@@ -203,6 +229,7 @@ impl PhysicsApp {
             }
         }
 
+        // Add object-to-object collision detection
         let len = self.objects.len();
         for i in 0..len {
             for j in (i + 1)..len {
@@ -211,32 +238,36 @@ impl PhysicsApp {
                     (&mut left[i], &mut right[0])
                 };
 
+                // Calculate distance between objects
                 let delta_pos = obj2.pos - obj1.pos;
                 let dist = delta_pos.length();
                 let min_dist = obj1.radius + obj2.radius;
 
+                // Check for collision
                 if dist < min_dist && dist > 0.0 {
                     let normal = delta_pos.normalized();
                     
-                    // Separate objects
+                    // Separate the objects
                     let overlap = min_dist - dist;
                     let separation = normal * (overlap / 2.0);
                     obj1.pos = obj1.pos - separation;
                     obj2.pos = obj2.pos + separation;
 
-                    // Calculate relative velocity
+                    // Calculate collision response
                     let rel_vel = obj2.vel - obj1.vel;
                     let vel_along_normal = rel_vel.dot(&normal);
 
+                    // Only resolve collision if objects are moving toward each other
                     if vel_along_normal < 0.0 {
                         continue;
                     }
 
-                    let e = obj1.bounciness.min(obj2.bounciness);
-
+                    // Calculate impulse
+                    let e = obj1.bounciness.min(obj2.bounciness); // Combined bounciness
                     let j = -(1.0 + e) * vel_along_normal;
                     let j = j / (1.0 / obj1.mass + 1.0 / obj2.mass);
 
+                    // Apply impulse
                     let impulse = normal * j;
                     obj1.vel = obj1.vel - impulse * (1.0 / obj1.mass);
                     obj2.vel = obj2.vel + impulse * (1.0 / obj2.mass);
@@ -248,6 +279,47 @@ impl PhysicsApp {
     fn render(&self, ui: &mut egui::Ui) {
         let painter = ui.painter();
         
+        // Draw springs
+        for spring in &self.springs {
+            if let Some(obj) = self.objects.get(spring.object_index) {
+                let anchor_pos = if let Some(anchor_idx) = spring.anchor {
+                    if let Some(anchor_obj) = self.objects.get(anchor_idx) {
+                        egui::pos2(anchor_obj.pos.x, anchor_obj.pos.y)
+                    } else {
+                        continue;
+                    }
+                } else {
+                    egui::pos2(spring.anchor_pos.x, spring.anchor_pos.y)
+                };
+
+                // Draw spring as a zigzag line
+                let obj_pos = egui::pos2(obj.pos.x, obj.pos.y);
+                let dist = ((obj_pos.x - anchor_pos.x).powi(2) + 
+                           (obj_pos.y - anchor_pos.y).powi(2)).sqrt();
+                let segments = (dist / 10.0).max(4.0) as i32;
+                let dx = (obj_pos.x - anchor_pos.x) / segments as f32;
+                let dy = (obj_pos.y - anchor_pos.y) / segments as f32;
+                
+                let mut points = Vec::new();
+                for i in 0..=segments {
+                    let t = i as f32 / segments as f32;
+                    let x = anchor_pos.x + dx * i as f32;
+                    let y = anchor_pos.y + dy * i as f32;
+                    let offset = if i % 2 == 0 { 5.0 } else { -5.0 };
+                    let normal_x = -dy / dist * offset;
+                    let normal_y = dx / dist * offset;
+                    points.push(egui::pos2(x + normal_x, y + normal_y));
+                }
+                
+                for i in 0..points.len()-1 {
+                    painter.line_segment(
+                        [points[i], points[i+1]],
+                        egui::Stroke::new(2.0, egui::Color32::YELLOW),
+                    );
+                }
+            }
+        }
+
         // Draw walls
         for wall in &self.walls {
             painter.line_segment(
@@ -388,16 +460,15 @@ impl eframe::App for PhysicsApp {
 
         // Main panel with the physics simulation
         egui::CentralPanel::default().show(ctx, |ui| {
-            // Create a frame for the physics simulation
             egui::Frame::canvas(ui.style()).show(ui, |ui| {
                 let rect = ui.available_rect_before_wrap();
                 self.bounds = (rect.width(), rect.height());
                 
-                // Handle mouse interactions
+                // Handle mouse 
                 if let Some(pos) = ui.input(|i| i.pointer.hover_pos()) {
                     let mouse_pos = Vec2::new(pos.x, pos.y);
 
-                    // Handle wall placement
+                    // wall placement
                     if ui.input(|i| i.key_pressed(egui::Key::W)) {
                         self.placing_wall = Some(mouse_pos);
                     }
@@ -428,14 +499,7 @@ impl eframe::App for PhysicsApp {
                         }
                     }
 
-                    // Update dragged object position
-                    if let Some(idx) = self.dragged_object {
-                        if let Some(obj) = self.objects.get_mut(idx) {
-                            obj.pos = mouse_pos;
-                        }
-                    }
-
-                    // Handle object launching
+                    // Handle object releasing
                     if ui.input(|i| i.pointer.primary_released()) {
                         if let Some(start) = self.pull_start {
                             if let Some(idx) = self.pull_object {
@@ -456,7 +520,6 @@ impl eframe::App for PhysicsApp {
                 
                 self.update_physics(dt, mouse_pos);
 
-                // Update wall collisions
                 let walls = &self.walls;
                 for obj in &mut self.objects {
                     for wall in walls {
