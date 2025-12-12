@@ -85,11 +85,10 @@ struct Wall {
 
 struct Spring {
     object_index: usize,
-    anchor: Option<usize>, // None for fixed point, Some(index) for connection to another object
-    anchor_pos: Vec2,      // Used when anchor is None (fixed point)
+    anchor: Option<usize>, // if you want to connect two objects 
+    anchor_pos: Vec2,      // if just one object, fixed point 
     rest_length: f32,
     stiffness: f32,
-    damping: f32,
 }
 
 struct PhysicsApp {
@@ -116,7 +115,6 @@ impl Default for PhysicsApp {
             anchor_pos: Vec2::new(400.0, 50.0),
             rest_length: 100.0,
             stiffness: 50.0,
-            damping: 5.0,
         });
         
         Self {
@@ -171,14 +169,14 @@ impl PhysicsApp {
             let spring_force = direction * (stretch * spring.stiffness);
 
             // Damping force (F = -bv)
-            let relative_vel = if let Some(anchor_idx) = spring.anchor {
-                obj.vel - self.objects.get(anchor_idx)?.vel
-            } else {
-                obj.vel
-            };
-            let damping_force = relative_vel * -spring.damping;
+            // let relative_vel = if let Some(anchor_idx) = spring.anchor {
+            //     obj.vel - self.objects.get(anchor_idx)?.vel
+            // } else {
+            //     obj.vel
+            // };
+            // let damping_force = relative_vel * -spring.damping;
 
-            Some((spring.object_index, spring_force + damping_force))
+            Some((spring.object_index, spring_force))
         }).collect();
 
         // Apply spring forces
@@ -229,7 +227,7 @@ impl PhysicsApp {
             }
         }
 
-        // Add object-to-object collision detection
+        // object-to-object collision detection
         let len = self.objects.len();
         for i in 0..len {
             for j in (i + 1)..len {
@@ -238,39 +236,33 @@ impl PhysicsApp {
                     (&mut left[i], &mut right[0])
                 };
 
-                // Calculate distance between objects
+                
                 let delta_pos = obj2.pos - obj1.pos;
                 let dist = delta_pos.length();
                 let min_dist = obj1.radius + obj2.radius;
 
-                // Check for collision
-                if dist < min_dist && dist > 0.0 {
+
+                if dist < min_dist {
                     let normal = delta_pos.normalized();
                     
-                    // Separate the objects
+                    
                     let overlap = min_dist - dist;
                     let separation = normal * (overlap / 2.0);
-                    obj1.pos = obj1.pos - separation;
-                    obj2.pos = obj2.pos + separation;
+                    let total_mass = obj1.mass + obj2.mass;
+                    obj1.pos = obj1.pos - separation * (obj2.mass / total_mass);
+                    obj2.pos = obj2.pos + separation * (obj1.mass / total_mass);
 
-                    // Calculate collision response
+                    
                     let rel_vel = obj2.vel - obj1.vel;
                     let vel_along_normal = rel_vel.dot(&normal);
 
-                    // Only resolve collision if objects are moving toward each other
-                    if vel_along_normal < 0.0 {
-                        continue;
-                    }
+                    // I calculate collisions as if they are elastic but reduce them slightly so they appear inelastic 
+                    let least_bounciness= obj1.bounciness.min(obj2.bounciness); 
+                    let mut impulse_mag = -(1.0 + least_bounciness) * vel_along_normal;
+                    impulse_mag = impulse_mag / (1.0 / obj1.mass + 1.0 / obj2.mass);
 
-                    // Calculate impulse
-                    let e = obj1.bounciness.min(obj2.bounciness); // Combined bounciness
-                    let j = -(1.0 + e) * vel_along_normal;
-                    let j = j / (1.0 / obj1.mass + 1.0 / obj2.mass);
-
-                    // Apply impulse
-                    let impulse = normal * j;
-                    obj1.vel = obj1.vel - impulse * (1.0 / obj1.mass);
-                    obj2.vel = obj2.vel + impulse * (1.0 / obj2.mass);
+                    obj1.vel = obj1.vel - ( normal * impulse_mag) * (1.0 / obj1.mass);
+                    obj2.vel = obj2.vel + (normal * impulse_mag) * (1.0 / obj2.mass);
                 }
             }
         }
@@ -399,7 +391,7 @@ impl eframe::App for PhysicsApp {
                 });
 
                 ui.add_space(20.0);
-                if ui.button("Add Random Object").clicked() {
+                if ui.button("Add inelastic ball").clicked() {
                     use rand::Rng;
                     let mut rng = rand::rng();
                     let bounds_margin = 50.0;
@@ -421,6 +413,31 @@ impl eframe::App for PhysicsApp {
                             rng.random_range(100..255),
                         ),
                         bounciness: rng.random_range(0.5..0.9),
+                    });
+                }
+
+                if ui.button("Add elastic ball").clicked() {
+                    use rand::Rng;
+                    let mut rng = rand::rng();
+                    let bounds_margin = 50.0;
+                    self.objects.push(PhysicsObject {
+                        pos: Vec2::new(
+                            rng.random_range(bounds_margin..self.bounds.0 - bounds_margin),
+                            rng.random_range(bounds_margin..self.bounds.1 - bounds_margin),
+                        ),
+                        vel: Vec2::new(
+                            rng.random_range(-200.0..200.0),
+                            rng.random_range(-100.0..100.0),
+                        ),
+                        acc: Vec2 { x: 0.0, y: 0.0 },
+                        radius: rng.random_range(20.0..40.0),
+                        mass: rng.random_range(0.5..1.5),
+                        color: egui::Color32::from_rgb(
+                            rng.random_range(100..255),
+                            rng.random_range(100..255),
+                            rng.random_range(100..255),
+                        ),
+                        bounciness: 1.0,
                     });
                 }
 
