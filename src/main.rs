@@ -153,8 +153,7 @@ impl PhysicsApp {
             2 => self.setup_level_2(),
             3 => self.setup_level_3(),
             4 => self.setup_level_4(),
-            5 => self.setup_level_5(),
-            _ => {}
+                _ => {}
         }
     }
 
@@ -211,18 +210,18 @@ fn setup_level_1(&mut self) {
 
         // Goal ball - can only be hit by intermediate ball
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(680.0, 480.0),
-            vel: Vec2::new(0.0, 0.0),
+            pos: Vec2::new(800.0, 480.0),
+            vel: Vec2::new(0.0, 450.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 30.0,
             mass: 1.5,
             color: egui::Color32::from_rgb(100, 255, 100),
-            bounciness: 0.85,
+            bounciness: 1.0,
             is_goal: true,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(680.0, 480.0),
-            initial_vel: Vec2::new(0.0, 0.0),
+            initial_pos: Vec2::new(800.0, 480.0),
+            initial_vel: Vec2::new(0.0,450.0),
         });
 
         // Blocking wall creating narrow passage
@@ -234,7 +233,6 @@ fn setup_level_1(&mut self) {
     }
 
     fn setup_level_2(&mut self) {
-        // Level 2: "Chain Reaction" - Must hit 2 balls in sequence to reach goal
         self.max_walls = 3;
         
         // Player ball - awkward upward angle
@@ -284,19 +282,19 @@ fn setup_level_1(&mut self) {
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
-        // First intermediate - player must hit this
+        // First intermediate(blue) - player must hit this
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(400.0, 150.0),
+            pos: Vec2::new(400.0, 250.0),
             vel: Vec2::new(0.0, 0.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 26.0,
             mass: 1.4,
-            color: egui::Color32::from_rgb(255, 150, 100),
+            color: egui::Color32::from_rgb(100, 200, 200),
             bounciness: 0.92,
             is_goal: false,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(400.0, 150.0),
+            initial_pos: Vec2::new(400.0, 250.0),
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
@@ -318,8 +316,8 @@ fn setup_level_1(&mut self) {
 
         // Goal ball - tucked in corner
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(750.0, 520.0),
-            vel: Vec2::new(0.0, 0.0),
+            pos: Vec2::new(850.0, 520.0),
+            vel: Vec2::new(0.0, 450.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 32.0,
             mass: 1.7,
@@ -328,31 +326,36 @@ fn setup_level_1(&mut self) {
             is_goal: true,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(750.0, 520.0),
+            initial_pos: Vec2::new(850.0, 520.0),
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
         // Barrier walls
         self.walls.push(Wall {
-            start: Vec2::new(350.0, 420.0),
-            end: Vec2::new(500.0, 390.0),
+            start: Vec2::new(350.0, 450.0),
+            end: Vec2::new(500.0, 430.0),
+            is_user_placed: false,
+        });
+
+        self.walls.push(Wall {
+            start: Vec2::new(760.0,400.0),
+            end: Vec2::new(760.0, 550.0),
             is_user_placed: false,
         });
         self.walls.push(Wall {
-            start: Vec2::new(480.0, 150.0),
-            end: Vec2::new(620.0, 180.0),
+            start: Vec2::new(760.0,150.0),
+            end: Vec2::new(760.0, 300.0),
             is_user_placed: false,
         });
     }
 
     fn setup_level_3(&mut self) {
-        // Level 3: "Pendulum Pinball" - Navigate swinging obstacles to hit trigger ball
         self.max_walls = 3;
         
         // Player ball - diagonal shot
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(120.0, 500.0),
-            vel: Vec2::new(380.0, -300.0),
+            pos: Vec2::new(100.0, 500.0),
+            vel: Vec2::new(440.0, -300.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 19.0,
             mass: 1.0,
@@ -361,15 +364,14 @@ fn setup_level_1(&mut self) {
             is_goal: false,
             is_player: true,
             fixed: false,
-            initial_pos: Vec2::new(120.0, 500.0),
-            initial_vel: Vec2::new(380.0, -300.0),
+            initial_pos: Vec2::new(100.0, 500.0),
+            initial_vel: Vec2::new(440.0, -300.0),
         });
 
         // Three fast-moving pendulums creating chaos
         let pendulum_configs = [
-            (280.0, 280.0, 220.0, 200.0, 100.0),
-            (450.0, 320.0, -180.0, 230.0, 110.0),
-            (620.0, 300.0, 200.0, 210.0, 95.0),
+            (450.0, 320.0, -130.0, 300.0, 230.0),
+            (620.0, 300.0, 0.0, 210.0, 95.0),
         ];
 
         for (i, &(x, y, vel_x, rest_len, stiffness)) in pendulum_configs.iter().enumerate() {
@@ -380,7 +382,7 @@ fn setup_level_1(&mut self) {
                 radius: 38.0 + i as f32 * 3.0,
                 mass: 2.2 + i as f32 * 0.4,
                 color: egui::Color32::from_rgb(200 - i as u8 * 30, 100, 100 + i as u8 * 40),
-                bounciness: 0.88,
+                bounciness: 0.78,
                 is_goal: false,
                 is_player: false,
                 fixed: false,
@@ -399,13 +401,13 @@ fn setup_level_1(&mut self) {
 
         // Trigger ball that must be hit
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(700.0, 200.0),
+            pos: Vec2::new(700.0, 220.0),
             vel: Vec2::new(0.0, 0.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 27.0,
             mass: 1.6,
             color: egui::Color32::from_rgb(255, 200, 100),
-            bounciness: 0.93,
+            bounciness: 0.5,
             is_goal: false,
             is_player: false,
             fixed: false,
@@ -415,7 +417,7 @@ fn setup_level_1(&mut self) {
 
         // Goal ball
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(750.0, 500.0),
+            pos: Vec2::new(700.0, 430.0),
             vel: Vec2::new(0.0, 0.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 32.0,
@@ -425,21 +427,39 @@ fn setup_level_1(&mut self) {
             is_goal: true,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(750.0, 500.0),
+            initial_pos: Vec2::new(700.0, 430.0),
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
+
+
+
+
+
+        // random platform
+        self.walls.push(Wall {
+            start: Vec2::new(600.0, 400.0),
+            end: Vec2::new(600.0, 700.0),
+            is_user_placed: false,
+        });
+
+
+        // under goal wall 
+        self.walls.push(Wall {
+            start: Vec2::new(660.0, 480.0),
+            end: Vec2::new(760.0, 480.0),
+            is_user_placed: false,
+        });
         // Protection walls
         self.walls.push(Wall {
-            start: Vec2::new(680.0, 380.0),
-            end: Vec2::new(770.0, 410.0),
+            start: Vec2::new(680.0, 250.0),
+            end: Vec2::new(770.0, 250.0),
             is_user_placed: false,
         });
     }
 
     fn setup_level_4(&mut self) {
-        // Level 4: "The Labyrinth" - Complex maze with multiple stages
-        self.max_walls = 4;
+        self.max_walls = 2;
         
         // Player ball
         self.objects.push(PhysicsObject {
@@ -462,7 +482,6 @@ fn setup_level_1(&mut self) {
             (280.0, 200.0, 70.0),
             (280.0, 420.0, 65.0),
             (500.0, 300.0, 75.0),
-            (680.0, 180.0, 60.0),
         ];
 
         for &(x, y, radius) in blockers.iter() {
@@ -484,8 +503,8 @@ fn setup_level_1(&mut self) {
 
         // Moving pendulum obstacle in the path
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(450.0, 450.0),
-            vel: Vec2::new(-200.0, 0.0),
+            pos: Vec2::new(450.0, 150.0),
+            vel: Vec2::new(100.0, 0.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 35.0,
             mass: 2.0,
@@ -494,37 +513,22 @@ fn setup_level_1(&mut self) {
             is_goal: false,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(450.0, 450.0),
-            initial_vel: Vec2::new(-200.0, 0.0),
-        });
-
-        self.springs.push(Spring {
-            object_index: 5,
-            anchor: None,
-            anchor_pos: Vec2::new(450.0, 550.0),
-            rest_length: 100.0,
-            stiffness: 110.0,
-        });
-
-        // First trigger
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(400.0, 150.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 25.0,
-            mass: 1.4,
-            color: egui::Color32::from_rgb(255, 180, 100),
-            bounciness: 0.94,
-            is_goal: false,
-            is_player: false,
-            fixed: false,
             initial_pos: Vec2::new(400.0, 150.0),
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
-        // Second trigger
+        self.springs.push(Spring {
+            object_index: 4,
+            anchor: None,
+            anchor_pos: Vec2::new(450.0,50.0),
+            rest_length: 100.0,
+            stiffness: 110.0,
+        });
+
+
+        //  trigger
         self.objects.push(PhysicsObject {
-            pos: Vec2::new(620.0, 420.0),
+            pos: Vec2::new(580.0, 164.0),
             vel: Vec2::new(0.0, 0.0),
             acc: Vec2::new(0.0, 0.0),
             radius: 27.0,
@@ -534,7 +538,7 @@ fn setup_level_1(&mut self) {
             is_goal: false,
             is_player: false,
             fixed: false,
-            initial_pos: Vec2::new(620.0, 420.0),
+            initial_pos: Vec2::new(580.0, 164.0),
             initial_vel: Vec2::new(0.0, 0.0),
         });
 
@@ -560,168 +564,23 @@ fn setup_level_1(&mut self) {
             end: Vec2::new(480.0, 280.0),
             is_user_placed: false,
         });
-        self.walls.push(Wall {
-            start: Vec2::new(550.0, 220.0),
-            end: Vec2::new(650.0, 250.0),
-            is_user_placed: false,
-        });
-    }
-
-    fn setup_level_5(&mut self) {
-        // Level 5: "The Gauntlet Master" - Ultimate challenge, everything combined
-        self.max_walls = 5;
-        
-        // Player ball - very awkward starting trajectory
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(80.0, 250.0),
-            vel: Vec2::new(320.0, 420.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 17.0,
-            mass: 1.0,
-            color: egui::Color32::from_rgb(100, 150, 255),
-            bounciness: 0.98,
-            is_goal: false,
-            is_player: true,
-            fixed: false,
-            initial_pos: Vec2::new(80.0, 250.0),
-            initial_vel: Vec2::new(320.0, 420.0),
-        });
-
-        // Massive center blocker
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(400.0, 300.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 80.0,
-            mass: 30.0,
-            color: egui::Color32::from_rgb(60, 60, 60),
-            bounciness: 0.05,
-            is_goal: false,
-            is_player: false,
-            fixed: true,
-            initial_pos: Vec2::new(400.0, 300.0),
-            initial_vel: Vec2::new(0.0, 0.0),
-        });
-
-        // Three chaotic pendulums
-        let pendulums = [
-            (250.0, 180.0, 250.0, 160.0, 120.0),
-            (550.0, 200.0, -280.0, 180.0, 130.0),
-            (650.0, 450.0, 220.0, 140.0, 115.0),
-        ];
-
-        for (i, &(x, y, vel_x, rest_len, stiffness)) in pendulums.iter().enumerate() {
-            self.objects.push(PhysicsObject {
-                pos: Vec2::new(x, y),
-                vel: Vec2::new(vel_x, 0.0),
-                acc: Vec2::new(0.0, 0.0),
-                radius: 40.0 + i as f32 * 2.0,
-                mass: 2.5 + i as f32 * 0.3,
-                color: egui::Color32::from_rgb(220 - i as u8 * 40, 80, 80 + i as u8 * 50),
-                bounciness: 0.87,
-                is_goal: false,
-                is_player: false,
-                fixed: false,
-                initial_pos: Vec2::new(x, y),
-                initial_vel: Vec2::new(vel_x, 0.0),
-            });
-
-            self.springs.push(Spring {
-                object_index: i + 2,
-                anchor: None,
-                anchor_pos: Vec2::new(x, if i == 2 { 550.0 } else { 50.0 }),
-                rest_length: rest_len,
-                stiffness,
-            });
-        }
-
-        // Additional static blockers
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(200.0, 450.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 55.0,
-            mass: 20.0,
-            color: egui::Color32::from_rgb(80, 80, 80),
-            bounciness: 0.1,
-            is_goal: false,
-            is_player: false,
-            fixed: true,
-            initial_pos: Vec2::new(200.0, 450.0),
-            initial_vel: Vec2::new(0.0, 0.0),
-        });
-
-        // First trigger ball
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(300.0, 500.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 26.0,
-            mass: 1.5,
-            color: egui::Color32::from_rgb(255, 150, 100),
-            bounciness: 0.95,
-            is_goal: false,
-            is_player: false,
-            fixed: false,
-            initial_pos: Vec2::new(300.0, 500.0),
-            initial_vel: Vec2::new(0.0, 0.0),
-        });
-
-        // Second trigger ball
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(520.0, 480.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 28.0,
-            mass: 1.6,
-            color: egui::Color32::from_rgb(255, 200, 120),
-            bounciness: 0.93,
-            is_goal: false,
-            is_player: false,
-            fixed: false,
-            initial_pos: Vec2::new(520.0, 480.0),
-            initial_vel: Vec2::new(0.0, 0.0),
-        });
-
-        // Goal - extremely well protected
-        self.objects.push(PhysicsObject {
-            pos: Vec2::new(770.0, 530.0),
-            vel: Vec2::new(0.0, 0.0),
-            acc: Vec2::new(0.0, 0.0),
-            radius: 36.0,
-            mass: 2.2,
-            color: egui::Color32::from_rgb(100, 255, 100),
-            bounciness: 0.80,
-            is_goal: true,
-            is_player: false,
-            fixed: false,
-            initial_pos: Vec2::new(770.0, 530.0),
-            initial_vel: Vec2::new(0.0, 0.0),
-        });
-
-        // Complex wall maze
-        self.walls.push(Wall {
-            start: Vec2::new(150.0, 350.0),
-            end: Vec2::new(280.0, 320.0),
-            is_user_placed: false,
-        });
-        self.walls.push(Wall {
-            start: Vec2::new(320.0, 180.0),
-            end: Vec2::new(450.0, 150.0),
-            is_user_placed: false,
-        });
-        self.walls.push(Wall {
-            start: Vec2::new(480.0, 380.0),
-            end: Vec2::new(600.0, 350.0),
-            is_user_placed: false,
-        });
-        self.walls.push(Wall {
-            start: Vec2::new(700.0, 250.0),
-            end: Vec2::new(780.0, 280.0),
-            is_user_placed: false,
-        });
-    }
     
+        self.walls.push(Wall {
+            start: Vec2::new(730.0, 570.0),
+            end: Vec2::new(730.0, 300.0),
+            is_user_placed: false,
+        });
+
+        // nice wall
+        self.walls.push(Wall {
+            start: Vec2::new(550.0, 190.0),
+            end: Vec2::new(650.0, 190.0),
+            is_user_placed: false,
+        });
+        
+    }
+
+     
     
     fn count_user_walls(&self) -> usize {
         self.walls.iter().filter(|w| w.is_user_placed).count()
@@ -818,7 +677,7 @@ fn setup_level_1(&mut self) {
 
                 if dist < min_dist {
                     // Check for goal hit
-                    if (obj1.is_goal && !obj2.is_player ) || (obj2.is_goal && !obj1.is_player) {
+                    if (obj1.is_goal && (!obj2.is_player && !obj2.fixed) || (obj2.is_goal && (!obj1.is_player && !obj1.fixed))) {
                         if !matches!(self.game_state, GameState::Won) {
                             self.game_state = GameState::Won;
                             self.win_time = Some(Instant::now());
@@ -1055,6 +914,19 @@ impl eframe::App for PhysicsApp {
                         ui.add_space(5.0);
                         ui.label("Click and drag to place walls");
                         ui.add_space(10.0);
+
+                        if ui.button("go back").clicked() {
+                            if self.level > 1 {
+                                self.level -= 1;
+                                self.setup_level(self.level);
+                            }
+                        }
+                        if ui.button("go forward").clicked() {
+                            if self.level < 4 {
+                                self.level += 1;
+                                self.setup_level(self.level);
+                            }
+                        }
                         
                         if ui.button("Launch Ball").clicked() {
                             self.game_state = GameState::Simulating;
